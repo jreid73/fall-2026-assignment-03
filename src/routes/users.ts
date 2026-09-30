@@ -4,6 +4,15 @@ import { getAllUsers, getUserById, createUser } from '../dal/users.js';
 
 const router = Router();
 
+function isPgError(err: unknown, code: string): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code?: unknown }).code === code
+  );
+}
+
 // TODO: Student implementation - Part 1: User Routes
 // GET /users
 router.get('/', async (_req, res, next) => {
@@ -52,8 +61,8 @@ router.post('/', authMiddleware, async (req, res, next) => {
       email: email.trim(),
     });
     res.status(201).json(user);
-  } catch (err: any) {
-    if (err?.code === '23505') {
+  } catch (err) {
+    if (isPgError(err, '23505')) {
       res.status(409).json({ error: 'A user with that email already exists' });
       return;
     }

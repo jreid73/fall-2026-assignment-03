@@ -1,3 +1,4 @@
+import { insertTimeLog, getTotalHoursForTicket } from '../dal/timeLogs.js';
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import {
@@ -104,7 +105,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
       creator_id: res.locals.userId,
     });
     res.status(201).json(ticket);
-  } catch (err: any) {
+  } catch (err) {
     if (isPgError(err, '23503')) {
       res.status(400).json({ error: 'X-User-Id does not match a valid user' });
       return;
@@ -142,6 +143,55 @@ router.patch('/:id/status', authMiddleware, async (req, res, next) => {
 });
 // TODO: Student implementation - Part 2: Time Log Routes
 // POST /tickets/:id/time
-// GET /tickets/:id/time
+router.post('/:id/time', authMiddleware, async (req, res, next) => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
 
+    const { hours } = req.body ?? {};
+    if (typeof hours !== 'number' || !Number.isInteger(hours) || hours < 1) {
+      res.status(400).json({ error: 'hours must be a positive integer' });
+      return;
+    }
+
+    const ticket = await getTicketById(id);
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    const timeLog = await insertTimeLog(id, res.locals.userId, hours);
+    res.status(201).json(timeLog);
+  } catch (err) {
+    if (isPgError(err, '23503')) {
+      res.status(400).json({ error: 'X-User-Id does not match a valid user' });
+      return;
+    }
+    next(err);
+  }
+});
+// GET /tickets/:id/time
+router.get('/:id/time', async (req, res, next) => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    const ticket = await getTicketById(id);
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    const totalHours = await getTotalHoursForTicket(id);
+    res.status(200).json({ ticket_id: id, total_hours: totalHours });
+  } catch (err) {
+    next(err);
+  }
+});
 export default router;
